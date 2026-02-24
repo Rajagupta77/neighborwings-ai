@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, CheckCircle, Loader2, Store } from 'lucide-react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/supabaseclient';
 
 interface VendorModalProps {
   isOpen: boolean;
