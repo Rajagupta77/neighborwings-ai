@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { X, CheckCircle, Loader2, Store } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
 
 interface VendorModalProps {
   isOpen: boolean;
@@ -32,33 +33,56 @@ export const VendorModal: React.FC<VendorModalProps> = ({ isOpen, onClose }) => 
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Vendor Registration Data:', formData);
-      setIsSubmitting(false);
-      setIsSuccess(true);
-      
-      // Auto close after success
-      setTimeout(() => {
-        setIsSuccess(false);
-        setFormData({
-          businessName: '',
-          serviceType: 'Event Decor & Balloons',
-          priceRange: '',
-          location: '',
-          rating: '',
-          email: '',
-          description: ''
-        });
-        onClose();
-      }, 3000);
-    }, 1200);
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsSubmitting(true);
+
+  const vendorData = {
+    name: formData.businessName.trim(),
+    service: formData.serviceType,
+    price_range: formData.priceRange.trim(),
+    location: formData.location.trim(),
+    rating: formData.rating ? Number(formData.rating) : null,
+    email: formData.email.trim(),
+    description: formData.description.trim(),
+    instagram: (formData as any).instagram?.trim() || null,
+    // whatsapp: formData.whatsapp?.trim() || null,   // uncomment later if you add the field
   };
 
+  try {
+    const { data, error } = await supabase
+      .from('vendors')
+      .insert([vendorData])
+      .select();
+
+    if (error) throw error;
+
+    console.log('✅ Vendor saved to Supabase:', data);
+    
+    setIsSubmitting(false);
+    setIsSuccess(true);
+
+    // Auto close after success
+    setTimeout(() => {
+      setIsSuccess(false);
+      setFormData({
+        businessName: '',
+        serviceType: 'Event Decor & Balloons',
+        priceRange: '',
+        location: '',
+        rating: '',
+        email: '',
+        description: ''
+      });
+      onClose();
+    }, 2500);
+
+  } catch (err: any) {
+    console.error('❌ Supabase error:', err);
+    setIsSubmitting(false);
+    alert('Failed to submit: ' + (err.message || 'Please check console'));
+  }
+};
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
