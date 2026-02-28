@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
 import { Message } from '../types';
-import { Copy, User, Check, Zap, ClipboardList, ExternalLink, Mail, CalendarCheck, MessageCircle, Instagram } from 'lucide-react';
+import { Copy, User, Check, Zap, ClipboardList, ExternalLink, Mail, CalendarCheck, MessageCircle, Instagram, ChevronDown, ChevronUp, Star, MapPin as PinIcon, DollarSign } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { EmailQuoteModal } from './EmailQuoteModal';
 import { VENDORS } from '../data';
+import { VendorCard } from './VendorCard';
 
 interface ChatMessageProps {
   message: Message;
@@ -66,37 +67,38 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
   const isTemplatePresent = message.content.toLowerCase().includes("hi [") || message.content.toLowerCase().includes("dear [");
   const isMatchesPresent = message.content.includes('|') && (message.content.includes('-') || message.content.includes('*'));
 
-  const renderVendorButtons = (vendorName: string) => {
-    const vendor = VENDORS.find(v => v.name === vendorName);
-    if (!vendor || (!vendor.phone && !vendor.instagram)) return null;
-
-    return (
-      <div className="flex flex-wrap gap-2 mt-2 mb-1">
-        {vendor.phone && (
-          <button
-            onClick={() => handleWhatsApp(vendor.name, vendor.phone!)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-lg text-[11px] font-bold uppercase tracking-wide transition-all shadow-sm hover:scale-105 active:scale-95"
-            title="Chat on WhatsApp"
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Message on WhatsApp</span>
-            <span className="sm:hidden">WhatsApp</span>
-          </button>
-        )}
-        {vendor.instagram && (
-          <button
-            onClick={() => handleInstagram(vendor.instagram!)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#E1306C] hover:bg-[#c92b60] text-white rounded-lg text-[11px] font-bold uppercase tracking-wide transition-all shadow-sm hover:scale-105 active:scale-95"
-            title="See portfolio on Instagram"
-          >
-            <Instagram className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">View on Instagram</span>
-            <span className="sm:hidden">Instagram</span>
-          </button>
-        )}
-      </div>
-    );
+  // Helper to extract plain text from React children
+  const extractText = (children: React.ReactNode): string => {
+    return React.Children.toArray(children)
+      .map(child => {
+        if (typeof child === 'string' || typeof child === 'number') return child.toString();
+        if (React.isValidElement(child) && (child.props as any).children) {
+          return extractText((child.props as any).children);
+        }
+        return '';
+      })
+      .join('');
   };
+
+  // Helper to extract context from message content or history
+  const getVendorContext = () => {
+    const content = message.content.toLowerCase();
+    const context: any = {};
+    
+    // Try to find budget
+    const budgetMatch = content.match(/\$\d+/);
+    if (budgetMatch) context.budget = budgetMatch[0];
+    
+    // Try to find service
+    if (content.includes('decor')) context.service = 'decor';
+    else if (content.includes('photo')) context.service = 'photography';
+    else if (content.includes('cater')) context.service = 'catering';
+    else if (content.includes('balloon')) context.service = 'balloons';
+    
+    return context;
+  };
+
+  const vendorContext = getVendorContext();
 
   return (
     <>
@@ -106,18 +108,18 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
         content={message.content}
       />
       
-      <div className={`flex w-full mb-4 ${isUser ? 'justify-end' : 'justify-start animate-in fade-in slide-in-from-bottom-2 duration-300'}`}>
-        <div className={`flex max-w-[95%] md:max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-          <div className={`flex-shrink-0 h-8 w-8 rounded-xl flex items-center justify-center shadow-sm ${
+      <div className={`flex w-full mb-2 ${isUser ? 'justify-end' : 'justify-start animate-in fade-in slide-in-from-bottom-2 duration-300'}`}>
+        <div className={`flex max-w-[80%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div className={`flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center shadow-sm ${
             isUser 
               ? 'bg-slate-800 ml-2' 
               : 'bg-gradient-to-br from-blue-600 to-indigo-700 mr-2'
           }`}>
-            {isUser ? <User className="w-4 h-4 text-white" /> : <Zap className="w-4 h-4 text-white" />}
+            {isUser ? <User className="w-3.5 h-3.5 text-white" /> : <Zap className="w-3.5 h-3.5 text-white" />}
           </div>
           
           <div className="flex flex-col w-full min-w-0">
-            <div className={`p-4 rounded-2xl shadow-sm text-[13px] leading-relaxed relative ${
+            <div className={`px-3 py-2 rounded-xl shadow-sm text-[13px] leading-[1.4] relative h-auto overflow-y-auto max-h-[500px] ${
               isUser 
                 ? 'bg-[#F2F4F7] text-slate-800 rounded-tr-none border border-slate-200' 
                 : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none prose-custom'
@@ -129,21 +131,19 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
                   remarkPlugins={[remarkGfm]}
                   components={{
                     p: ({ children }) => {
-                      const content = React.Children.toArray(children).map(c => c?.toString() || '').join('');
-                      const isParaTemplate = content.toLowerCase().includes("hi [");
+                      const contentText = extractText(children);
+                      const isParaTemplate = contentText.toLowerCase().includes("hi [");
                       
                       // Check for vendor names in paragraph (e.g. Surprise Me)
-                      let vendorButtons = null;
-                      const foundVendor = VENDORS.find(v => content.includes(`**${v.name}**`));
-                      if (foundVendor) {
-                        vendorButtons = renderVendorButtons(foundVendor.name);
-                      }
-
-                      // Action buttons logic
-                      if (content.includes('[[')) {
-                        const parts = content.split(/(\[\[.*?\]\])/g);
-                        return (
-                          <div className="mb-2 last:mb-0">
+                      // Match either **Name** or just Name if it's a clear vendor match
+                      const foundVendor = VENDORS.find(v => 
+                        contentText.toLowerCase().includes(v.name.toLowerCase())
+                      );
+                      
+                      const renderContent = () => {
+                        if (contentText.includes('[[')) {
+                          const parts = contentText.split(/(\[\[.*?\]\])/g);
+                          return (
                             <p className="leading-relaxed inline">
                               {parts.map((part, i) => {
                                 if (part.startsWith('[[') && part.endsWith(']]')) {
@@ -161,40 +161,53 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
                                 return <span key={i}>{part}</span>;
                               })}
                             </p>
-                            {vendorButtons}
-                          </div>
+                          );
+                        }
+                        return <p className="leading-relaxed">{children}</p>;
+                      };
+
+                      if (foundVendor) {
+                        return (
+                          <VendorCard vendorName={foundVendor.name} onSendMessage={onSendMessage} context={vendorContext}>
+                            {renderContent()}
+                          </VendorCard>
                         );
                       }
                       
                       return (
                         <div className={`${isParaTemplate ? 'template-block font-medium' : 'mb-2 last:mb-0'}`}>
-                          <p className="leading-relaxed">{children}</p>
-                          {vendorButtons}
+                          {renderContent()}
                         </div>
                       );
                     },
                     ul: ({ children }) => <ul className="mb-3 list-disc ml-4 space-y-1">{children}</ul>,
                     ol: ({ children }) => <ol className="list-decimal ml-4 mb-3 space-y-1">{children}</ol>,
                     li: ({ children }) => {
-                      const content = React.Children.toArray(children).map(c => c?.toString() || '').join('');
+                      const contentText = extractText(children);
                       
                       // Check for vendor match in list item
-                      let vendorButtons = null;
-                      const foundVendor = VENDORS.find(v => content.includes(`**${v.name}**`));
+                      const foundVendor = VENDORS.find(v => 
+                        contentText.toLowerCase().includes(v.name.toLowerCase())
+                      );
                       if (foundVendor) {
-                        vendorButtons = renderVendorButtons(foundVendor.name);
+                        return (
+                          <li className="list-none mb-4 pl-0">
+                            <VendorCard vendorName={foundVendor.name} onSendMessage={onSendMessage} context={vendorContext}>
+                              {children}
+                            </VendorCard>
+                          </li>
+                        );
                       }
 
                       return (
                         <li className="pl-1">
                           <div className="inline-block w-full">
                             {children}
-                            {vendorButtons}
                           </div>
                         </li>
                       );
                     },
-                    strong: ({ children }) => <span className="font-bold text-slate-900 block text-[14px] mb-1">{children}</span>,
+                    strong: ({ children }) => <span className="font-bold text-slate-900 text-[14px]">{children}</span>,
                     em: ({ children }) => <span className="italic text-slate-500">{children}</span>,
                     h1: ({ children }) => <h1 className="text-base font-bold text-slate-900 mb-2 mt-3 first:mt-0">{children}</h1>,
                     h2: ({ children }) => <h2 className="text-sm font-bold text-slate-900 mb-2 mt-2">{children}</h2>,
@@ -231,28 +244,33 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
                     ),
                     blockquote: ({ children }) => {
                       const isSmartBundle = React.Children.toArray(children).some((child: any) => {
-                         if (child?.props?.children) {
+                         if (child && typeof child === 'object' && 'props' in child) {
                            const text = Array.isArray(child.props.children) 
                              ? child.props.children.map((c: any) => c?.toString() || '').join('')
-                             : child.props.children.toString();
+                             : child.props.children?.toString() || '';
                            return text.includes('Smart Bundle');
                          }
                          return false;
                       });
 
                       if (isSmartBundle) {
-                        // Extract vendor name from smart bundle text if possible, or just show generic book button
-                        // The text usually contains **Vendor Name**
-                        const content = React.Children.toArray(children).map(c => {
-                          if (typeof c === 'string') return c;
-                          if (c?.props?.children) return Array.isArray(c.props.children) ? c.props.children.join('') : c.props.children;
-                          return '';
-                        }).join('');
+                        const contentText = extractText(children);
                         
-                        let vendorButtons = null;
-                        const foundVendor = VENDORS.find(v => content.includes(`**${v.name}**`));
+                        const foundVendor = VENDORS.find(v => 
+                          contentText.toLowerCase().includes(v.name.toLowerCase())
+                        );
+
                         if (foundVendor) {
-                          vendorButtons = renderVendorButtons(foundVendor.name);
+                          return (
+                            <div className="my-4 relative">
+                              <div className="absolute -top-3 left-4 z-10 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
+                                <Zap className="w-2.5 h-2.5 fill-white" /> Smart Bundle
+                              </div>
+                              <VendorCard vendorName={foundVendor.name} onSendMessage={onSendMessage} context={vendorContext}>
+                                {children}
+                              </VendorCard>
+                            </div>
+                          );
                         }
 
                         return (
@@ -263,8 +281,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
                             <div className="text-indigo-900 text-xs relative z-10 font-medium leading-relaxed">
                               {children}
                             </div>
-                            {vendorButtons}
-                            {onSendMessage && !vendorButtons && (
+                            {onSendMessage && (
                               <button 
                                 onClick={() => onSendMessage("I'm interested in the smart bundle you suggested. Can we book it?")}
                                 className="mt-2 relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[9px] font-bold uppercase tracking-wider rounded-md transition-all shadow-sm active:scale-95"
@@ -344,7 +361,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
               )}
             </div>
             
-            <div className={`flex items-center gap-1.5 mt-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+            <div className={`flex items-center gap-1.5 mt-1 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                 {isUser ? 'You' : 'NeighborWings'}
               </span>
