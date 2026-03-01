@@ -105,7 +105,8 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       'https://glwxjshknoxebxtkriaq.supabase.co/functions/v1/process-vendor-payment', // Replace with your actual Edge Function URL from Supabase dashboard
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json',
+                   'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`  // ← Add this line
         body: JSON.stringify({
           paymentMethodId: paymentMethod.id,
           vendorData,  // Send vendor data to backend
