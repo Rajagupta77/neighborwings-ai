@@ -14,7 +14,7 @@ export const getGeminiResponse = async (history: Message[]) => {
   const genAI = new GoogleGenerativeAI(apiKey);
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash-001",
+    model: "gemini-2.5-flash",
     systemInstruction: SYSTEM_INSTRUCTION,
     generationConfig: {
       temperature: 0.8,
