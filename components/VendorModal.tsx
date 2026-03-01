@@ -44,9 +44,24 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [lastSubmitTime, setLastSubmitTime] = useState<number>(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Frontend Rate Limiting (Throttle) - Prevent submission more than once every 30 seconds
+    const now = Date.now();
+    if (now - lastSubmitTime < 30000) {
+      setPaymentError('Please wait a moment before submitting again.');
+      return;
+    }
+
+    // Basic Input Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim().toLowerCase())) {
+      setPaymentError('Please enter a valid email address.');
+      return;
+    }
 
     if (!stripe || !elements) {
       return;
@@ -54,6 +69,7 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
     setIsSubmitting(true);
     setPaymentError(null);
+    setLastSubmitTime(now);
 
     const cardElement = elements.getElement(CardElement);
 
@@ -62,35 +78,41 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       return;
     }
 
-    const { error, paymentMethod } = await stripe.createPaymentMethod({
-      type: 'card',
-      card: cardElement,
-      billing_details: {
-        email: formData.email,
-        name: formData.businessName,
-      },
-    });
+    try {
+      const { error, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+        billing_details: {
+          email: formData.email.trim().toLowerCase(),
+          name: formData.businessName.trim(),
+        },
+      });
 
-    if (error) {
-      setPaymentError(error.message || 'An error occurred with your payment.');
-      setIsSubmitting(false);
-      return;
-    }
+      if (error) {
+        // Stripe errors are safe to show as they are user-facing
+        setPaymentError(error.message || 'An error occurred with your payment.');
+        setIsSubmitting(false);
+        return;
+      }
 
-    // Simulate API call to backend with paymentMethod.id
-    console.log('Payment Method Created:', paymentMethod.id);
-    console.log('Vendor Registration Data:', formData);
+      // Log only non-sensitive metadata server-side (simulated)
+      console.error('Payment intent initiated for:', formData.businessName);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setIsSuccess(true);
-      
-      // Auto close after success
       setTimeout(() => {
-        setIsSuccess(false);
-        onClose();
-      }, 3000);
-    }, 1500);
+        setIsSubmitting(false);
+        setIsSuccess(true);
+        
+        // Auto close after success
+        setTimeout(() => {
+          setIsSuccess(false);
+          onClose();
+        }, 3000);
+      }, 1500);
+    } catch (err) {
+      console.error('Submission error:', err);
+      setPaymentError('Something went wrong. Please try again later.');
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {

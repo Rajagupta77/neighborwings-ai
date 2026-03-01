@@ -68,8 +68,10 @@ export const MainApp: React.FC = () => {
       
       setMessages(prev => [...prev, assistantMsg]);
     } catch (err) {
-      console.error("Error sending message:", err);
-      setError("No matches yet — try a different date or category?");
+      // Log detailed error server-side (simulated)
+      console.error("Chat processing failed:", err instanceof Error ? err.message : "Unknown error");
+      // Show generic error to user
+      setError("NeighborWings is currently experiencing high demand. Please try again in a moment.");
     } finally {
       setIsLoading(false);
     }
