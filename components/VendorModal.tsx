@@ -47,74 +47,95 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const [lastSubmitTime, setLastSubmitTime] = useState<number>(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Frontend Rate Limiting (Throttle) - Prevent submission more than once every 30 seconds
-    const now = Date.now();
-    if (now - lastSubmitTime < 30000) {
-      setPaymentError('Please wait a moment before submitting again.');
+  // Frontend Rate Limiting - Keep this as is
+  const now = Date.now();
+  if (now - lastSubmitTime < 30000) {
+    setPaymentError('Please wait a moment before submitting again.');
+    return;
+  }
+
+  // Basic Input Validation - Keep this as is
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(formData.email.trim().toLowerCase())) {
+    setPaymentError('Please enter a valid email address.');
+    return;
+  }
+
+  if (!stripe || !elements) {
+    setPaymentError('Payment system not loaded. Please try again.');
+    return;
+  }
+
+  setIsSubmitting(true);
+  setPaymentError(null);
+  setLastSubmitTime(now);
+
+  try {
+    const { error, paymentMethod } = await stripe.createPaymentMethod({
+      type: 'card',
+      card: elements.getElement(CardElement)!,
+      billing_details: {
+        name: formData.businessName,
+        email: formData.email,
+      },
+    });
+
+    if (error) {
+      setPaymentError(error.message);
       return;
     }
 
-    // Basic Input Validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email.trim().toLowerCase())) {
-      setPaymentError('Please enter a valid email address.');
-      return;
-    }
+    // Prepare vendor data to match Supabase columns
+    const vendorData = {
+      name: formData.businessName.trim(),
+      service: formData.serviceType.trim(),
+      price_range: formData.priceRange.trim(),
+      location: formData.location.trim(),
+      rating: formData.rating ? Number(formData.rating) : null,
+      email: formData.email.trim(),
+      description: formData.description.trim(),
+      instagram: formData.instagram?.trim() || null,
+      // whatsapp: formData.whatsapp?.trim() || null, // Add if you have the field
+    };
 
-    if (!stripe || !elements) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    setPaymentError(null);
-    setLastSubmitTime(now);
-
-    const cardElement = elements.getElement(CardElement);
-
-    if (!cardElement) {
-      setIsSubmitting(false);
-      return;
-    }
-
-    try {
-      const { error, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-        billing_details: {
-          email: formData.email.trim().toLowerCase(),
-          name: formData.businessName.trim(),
-        },
-      });
-
-      if (error) {
-        // Stripe errors are safe to show as they are user-facing
-        setPaymentError(error.message || 'An error occurred with your payment.');
-        setIsSubmitting(false);
-        return;
+    // Call Supabase Edge Function to process payment + save vendor
+    const res = await fetch(
+      'https://glwxjshknoxebxtkriaq.supabase.co/functions/v1/process-vendor-payment', // Replace with your actual Edge Function URL from Supabase dashboard
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentMethodId: paymentMethod.id,
+          vendorData,  // Send vendor data to backend
+          amount: 1900,  // $19.00 in cents (test amount)
+        }),
       }
+    );
 
-      // Log only non-sensitive metadata server-side (simulated)
-      console.error('Payment intent initiated for:', formData.businessName);
+    const result = await res.json();
 
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setIsSuccess(true);
-        
-        // Auto close after success
-        setTimeout(() => {
-          setIsSuccess(false);
-          onClose();
-        }, 3000);
-      }, 1500);
-    } catch (err) {
-      console.error('Submission error:', err);
-      setPaymentError('Something went wrong. Please try again later.');
-      setIsSubmitting(false);
+    if (!res.ok || result.error) {
+      throw new Error(result.error || 'Payment failed');
     }
-  };
 
+    console.log('Payment successful, vendor saved:', result.vendor);
+    setIsSuccess(true);
+
+    // Auto close after success
+    setTimeout(() => {
+      setIsSuccess(false);
+      onClose();
+    }, 3000);
+
+  } catch (err: any) {
+    setPaymentError(err.message || 'An error occurred during payment');
+    console.error(err);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
