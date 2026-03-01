@@ -14,22 +14,32 @@ export const getGeminiResponse = async (history: Message[]) => {
   const genAI = new GoogleGenerativeAI(apiKey);
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash-latest", // or "gemini-1.5-pro-latest" if you prefer
+    model: "gemini-1.5-flash-latest",
     systemInstruction: SYSTEM_INSTRUCTION,
     generationConfig: {
       temperature: 0.8,
     },
   });
 
-  const chat = model.startChat({
-    history: history.map(msg => ({
-      role: msg.role === "user" ? "user" : "model",
+  // Fix role order: ensure history starts with "user" and alternates
+  const safeHistory = history.map((msg, index) => {
+    // Force first message to "user" if it's not
+    const role = index === 0 ? "user" : (msg.role === "user" ? "user" : "model");
+    return {
+      role,
       parts: [{ text: msg.content }],
-    })),
+    };
+  });
+
+  console.log('Safe history sent to Gemini:', safeHistory);
+
+  const chat = model.startChat({
+    history: safeHistory.slice(0, -1), // exclude the last user message (it's sent separately)
   });
 
   try {
-    const result = await chat.sendMessage(history[history.length - 1].content);
+    const lastUserMessage = history[history.length - 1].content;
+    const result = await chat.sendMessage(lastUserMessage);
     const response = await result.response;
     const text = response.text();
 
