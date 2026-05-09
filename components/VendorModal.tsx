@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { X, CheckCircle, Loader2, Store, CreditCard, Info } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
@@ -8,8 +7,8 @@ import {
   useStripe,
   useElements,
 } from '@stripe/react-stripe-js';
+import { getSupabase } from '../lib/supabaseClient';
 
-// Replace with your actual Stripe publishable key from the dashboard
 const stripePromise = loadStripe('pk_test_51T5wNi4Z6oWBqhmWSdSonUiMg4byHzyaoLAUD6xLSDSwfQTpbC2fhKarvtwdMGKiESy38FgJBSVCSfdtAtdujIJP006EAb7Pza');
 
 interface VendorModalProps {
@@ -39,7 +38,8 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     rating: '',
     email: '',
     description: '',
-    instagram: ''
+    instagram: '',
+    whatsapp: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -49,37 +49,35 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Frontend Rate Limiting (Throttle) - Prevent submission more than once every 30 seconds
+    // Rate limiting
     const now = Date.now();
     if (now - lastSubmitTime < 30000) {
       setPaymentError('Please wait a moment before submitting again.');
       return;
     }
 
-    // Basic Input Validation
+    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email.trim().toLowerCase())) {
       setPaymentError('Please enter a valid email address.');
       return;
     }
 
-    if (!stripe || !elements) {
-      return;
-    }
+    if (!stripe || !elements) return;
 
     setIsSubmitting(true);
     setPaymentError(null);
     setLastSubmitTime(now);
 
     const cardElement = elements.getElement(CardElement);
-
     if (!cardElement) {
       setIsSubmitting(false);
       return;
     }
 
     try {
-      const { error, paymentMethod } = await stripe.createPaymentMethod({
+      // Step 1: Process Stripe payment
+      const { error: stripeError, paymentMethod } = await stripe.createPaymentMethod({
         type: 'card',
         card: cardElement,
         billing_details: {
@@ -88,26 +86,45 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         },
       });
 
-      if (error) {
-        // Stripe errors are safe to show as they are user-facing
-        setPaymentError(error.message || 'An error occurred with your payment.');
+      if (stripeError) {
+        setPaymentError(stripeError.message || 'Payment error occurred.');
         setIsSubmitting(false);
         return;
       }
 
-      // Log only non-sensitive metadata server-side (simulated)
-      console.error('Payment intent initiated for:', formData.businessName);
+      // Step 2: Save vendor to Supabase
+      const supabase = getSupabase();
+      const { error: supabaseError } = await supabase
+        .from('vendors')
+        .insert([{
+          name: formData.businessName.trim(),
+          service: formData.serviceType,
+          price_range: formData.priceRange.trim() || null,
+          location: formData.location.trim() || null,
+          description: formData.description.trim() || null,
+          rating: formData.rating ? parseFloat(formData.rating) : null,
+          email: formData.email.trim().toLowerCase(),
+          instagram: formData.instagram.replace('@', '').trim() || null,
+          whatsapp: formData.whatsapp.trim() || null,
+          created_date: new Date().toISOString(),
+        }]);
+
+      if (supabaseError) {
+        console.error('Supabase insert error:', supabaseError);
+        setPaymentError('Payment succeeded but listing save failed. Please contact support.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Step 3: Show success
+      setIsSubmitting(false);
+      setIsSuccess(true);
 
       setTimeout(() => {
-        setIsSubmitting(false);
-        setIsSuccess(true);
-        
-        // Auto close after success
-        setTimeout(() => {
-          setIsSuccess(false);
-          onClose();
-        }, 3000);
-      }, 1500);
+        setIsSuccess(false);
+        onClose();
+      }, 3000);
+
     } catch (err) {
       console.error('Submission error:', err);
       setPaymentError('Something went wrong. Please try again later.');
@@ -126,9 +143,9 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-2">
           <CheckCircle className="w-8 h-8 text-green-600" />
         </div>
-        <h3 className="text-xl font-bold text-slate-900">Payment Successful!</h3>
+        <h3 className="text-xl font-bold text-slate-900">You're listed!</h3>
         <p className="text-slate-600 text-sm max-w-xs mx-auto">
-          Thanks for joining NeighborWings. Your listing has been submitted and will be reviewed shortly.
+          Thanks for joining NeighborWings! Your listing is now live and visible to Tampa locals.
         </p>
       </div>
     );
@@ -213,7 +230,17 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">Rating (1-5)</label>
+          <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">WhatsApp (Optional)</label>
+          <input
+            name="whatsapp"
+            value={formData.whatsapp}
+            onChange={handleChange}
+            placeholder="+1 813 555 0000"
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-50/50 transition-all"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">Rating (1–5)</label>
           <input
             type="number"
             min="1"
@@ -249,27 +276,23 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </label>
           <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">One-time payment</span>
         </div>
-        
+
         <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-50/50 transition-all">
-          <CardElement 
+          <CardElement
             options={{
               style: {
                 base: {
                   fontSize: '14px',
                   color: '#1e293b',
                   fontFamily: 'Inter, sans-serif',
-                  '::placeholder': {
-                    color: '#94a3b8',
-                  },
+                  '::placeholder': { color: '#94a3b8' },
                 },
-                invalid: {
-                  color: '#ef4444',
-                },
+                invalid: { color: '#ef4444' },
               },
             }}
           />
         </div>
-        
+
         <div className="flex items-start gap-2 bg-amber-50/50 p-2.5 rounded-lg border border-amber-100/50">
           <Info className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-[10px] text-amber-700 leading-relaxed">
@@ -288,12 +311,12 @@ const VendorFormContent: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <button
           type="submit"
           disabled={isSubmitting || !stripe}
-          className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-slate-200 hover:bg-slate-800 active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-0.5 disabled:opacity-70 disabled:cursor-not-allowed group"
+          className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-slate-200 hover:bg-slate-800 active:scale-[0-98] transition-all flex flex-col items-center justify-center gap-0.5 disabled:opacity-70 disabled:cursor-not-allowed group"
         >
           {isSubmitting ? (
             <div className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Processing Payment...</span>
+              <span>Processing...</span>
             </div>
           ) : (
             <>
@@ -312,11 +335,10 @@ export const VendorModal: React.FC<VendorModalProps> = ({ isOpen, onClose }) => 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div 
+      <div
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 relative"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
           <div className="flex items-center gap-2.5">
             <div className="bg-blue-100 p-2 rounded-lg">
@@ -327,7 +349,7 @@ export const VendorModal: React.FC<VendorModalProps> = ({ isOpen, onClose }) => 
               <p className="text-xs text-slate-500 font-medium">Connect with Tampa locals</p>
             </div>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-50 rounded-full transition-colors"
           >
@@ -335,7 +357,6 @@ export const VendorModal: React.FC<VendorModalProps> = ({ isOpen, onClose }) => 
           </button>
         </div>
 
-        {/* Content */}
         <div className="overflow-y-auto p-6 scroll-smooth">
           <Elements stripe={stripePromise}>
             <VendorFormContent onClose={onClose} />
