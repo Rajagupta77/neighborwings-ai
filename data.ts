@@ -90,7 +90,8 @@ export const VENDORS: Vendor[] = [
     tags: ["beach themes", "eco-friendly"],
     description: "Specializing in sustainable and beach-themed decor for local events.",
     phone: "+17275559876",
-    instagram: "tampabeachdecor"
+    instagram: "tampabeachdecor",
+    email: "hello@tampadecorpros.com"
   },
   {
     name: "Sunset Photography Tampa",
@@ -102,7 +103,8 @@ export const VENDORS: Vendor[] = [
     tags: ["romantic", "gender reveal"],
     description: "Capturing golden hour moments and special celebrations with a romantic touch.",
     phone: "+18135551234",
-    instagram: "sunsetphoto_tampa"
+    instagram: "sunsetphoto_tampa",
+    email: "shutter@sunsetphototampa.com"
   },
   {
     name: "Bay Area Balloons & More",
@@ -114,7 +116,8 @@ export const VENDORS: Vendor[] = [
     tags: ["gender reveal", "parties"],
     description: "Creative balloon arrangements for birthdays, reveals, and corporate events.",
     phone: "+17275556789",
-    instagram: "bayareaballoons"
+    instagram: "bayareaballoons",
+    email: "party@bayareaballoons.com"
   },
   {
     name: "Elegant Events Catering",
@@ -126,6 +129,7 @@ export const VENDORS: Vendor[] = [
     tags: ["weddings", "corporate"],
     description: "Full-service catering with a focus on elegant presentation and local flavors.",
     phone: "+17275554321",
-    instagram: "eleganteventscatering"
+    instagram: "eleganteventscatering",
+    email: "orders@elegantevents.com"
   }
 ];

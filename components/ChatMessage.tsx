@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Message } from '../types';
-import { Copy, User, Check, Zap, ClipboardList, ExternalLink, Mail, CalendarCheck, MessageCircle, Instagram, ChevronDown, ChevronUp, Star, MapPin as PinIcon, DollarSign } from 'lucide-react';
+import { Copy, User, Check, Zap, ClipboardList, ExternalLink, Mail, CalendarCheck, MessageCircle, Instagram, ChevronDown, ChevronUp, Star, MapPin as PinIcon, DollarSign, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { EmailQuoteModal } from './EmailQuoteModal';
@@ -66,6 +66,17 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
 
   const isTemplatePresent = message.content.toLowerCase().includes("hi [") || message.content.toLowerCase().includes("dear [");
   const isMatchesPresent = message.content.includes('|') && (message.content.includes('-') || message.content.includes('*'));
+  
+  // Detect if this is a booking follow-up to avoid re-rendering the vendor card
+  const bookingKeywords = [
+    "when is your event",
+    "specific services are you looking for",
+    "how many guests",
+    "share your name and email",
+    "sent your booking request",
+    "contact them directly"
+  ];
+  const isBookingFollowUp = bookingKeywords.some(keyword => message.content.toLowerCase().includes(keyword.toLowerCase()));
 
   // Helper to extract plain text from React children
   const extractText = (children: React.ReactNode): string => {
@@ -108,214 +119,229 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
         content={message.content}
       />
       
-      <div className={`flex w-full mb-2 ${isUser ? 'justify-end' : 'justify-start animate-in fade-in slide-in-from-bottom-2 duration-300'}`}>
-        <div className={`flex max-w-[80%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-          <div className={`flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center shadow-sm ${
-            isUser 
-              ? 'bg-slate-800 ml-2' 
-              : 'bg-gradient-to-br from-blue-600 to-indigo-700 mr-2'
-          }`}>
-            {isUser ? <User className="w-3.5 h-3.5 text-white" /> : <Zap className="w-3.5 h-3.5 text-white" />}
-          </div>
-          
+    <div className={`flex w-full mb-8 ${isUser ? 'justify-end' : 'justify-start animate-in fade-in slide-in-from-bottom-3 duration-500'}`}>
+        <div className={`flex max-w-[85%] sm:max-w-[75%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-4`}>
           <div className="flex flex-col w-full min-w-0">
-            <div className={`px-3 py-2 rounded-xl shadow-sm text-[13px] leading-[1.4] relative h-auto overflow-y-auto max-h-[500px] ${
+            <div className={`px-6 py-4 rounded-3xl text-[16px] leading-relaxed relative ${
               isUser 
-                ? 'bg-[#F2F4F7] text-slate-800 rounded-tr-none border border-slate-200' 
-                : 'bg-white text-slate-800 border border-slate-100 rounded-tl-none prose-custom'
-            }`}>
+                ? 'bg-slate-900 text-white shadow-xl shadow-slate-200/50' 
+                : 'bg-slate-50 text-slate-800 border border-slate-100'
+            } ${isUser ? 'rounded-tr-none' : 'rounded-tl-none'}`}>
               {isUser ? (
                 <div className="whitespace-pre-wrap font-medium">{message.content}</div>
               ) : (
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    p: ({ children }) => {
-                      const contentText = extractText(children);
-                      const isParaTemplate = contentText.toLowerCase().includes("hi [");
-                      
-                      // Check for vendor names in paragraph (e.g. Surprise Me)
-                      // Match either **Name** or just Name if it's a clear vendor match
-                      const foundVendor = VENDORS.find(v => 
-                        contentText.toLowerCase().includes(v.name.toLowerCase())
-                      );
-                      
-                      const renderContent = () => {
-                        if (contentText.includes('[[')) {
-                          const parts = contentText.split(/(\[\[.*?\]\])/g);
+                <div className="markdown-body prose prose-slate max-w-none">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => {
+                        const contentText = extractText(children);
+                        const isParaTemplate = contentText.toLowerCase().includes("hi [");
+                        
+                        const foundVendor = VENDORS.find(v => 
+                          contentText.toLowerCase().includes(v.name.toLowerCase())
+                        );
+                        
+                        const renderContent = () => {
+                          if (contentText.includes('[[')) {
+                            const parts = contentText.split(/(\[\[.*?\]\])/g);
+                            return (
+                              <div className="leading-relaxed inline-block w-full">
+                                {parts.map((part, i) => {
+                                  if (part.startsWith('[[') && part.endsWith(']]')) {
+                                    const actionText = part.slice(2, -2);
+                                    
+                                    // Handle CONTACT_BUTTONS marker
+                                    if (actionText.startsWith('CONTACT_BUTTONS:')) {
+                                      const vNamePart = actionText.split(':')[1];
+                                      const vName = vNamePart ? vNamePart.replace(/[\[\]]/g, '').trim() : '';
+                                      const vendor = VENDORS.find(v => v.name.toLowerCase() === vName.toLowerCase());
+                                      
+                                      if (vendor) {
+                                        return (
+                                          <div key={i} className="flex flex-wrap gap-2 mt-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
+                                            <button 
+                                              onClick={() => handleWhatsApp(vendor.name, vendor.phone || '')}
+                                              className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                                            >
+                                              <MessageCircle className="w-4 h-4" />
+                                              WhatsApp
+                                            </button>
+                                            <button 
+                                              onClick={() => handleInstagram(vendor.instagram || '')}
+                                              className="flex-1 min-w-[140px] flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600 hover:opacity-90 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
+                                            >
+                                              <Instagram className="w-4 h-4" />
+                                              Instagram
+                                            </button>
+                                          </div>
+                                        );
+                                      }
+                                      return null;
+                                    }
+
+                                    return (
+                                      <button
+                                        key={i}
+                                        onClick={() => onSendMessage && onSendMessage(actionText)}
+                                        className="inline-flex items-center gap-1 px-3 py-1 bg-slate-900 text-white hover:bg-black rounded-lg text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer align-middle shadow-md mb-1 mr-1"
+                                      >
+                                        {actionText}
+                                      </button>
+                                    );
+                                  }
+                                  return <span key={i}>{part}</span>;
+                                })}
+                              </div>
+                            );
+                          }
+                          return <p className="leading-relaxed">{children}</p>;
+                        };
+
+                        if (foundVendor && !isBookingFollowUp) {
                           return (
-                            <p className="leading-relaxed inline">
-                              {parts.map((part, i) => {
-                                if (part.startsWith('[[') && part.endsWith(']]')) {
-                                  const actionText = part.slice(2, -2);
-                                  return (
-                                    <button
-                                      key={i}
-                                      onClick={() => onSendMessage && onSendMessage(actionText)}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 mx-1 bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 rounded-md text-[10px] font-bold uppercase tracking-wide transition-colors cursor-pointer align-middle shadow-sm"
-                                    >
-                                      {actionText}
-                                    </button>
-                                  );
-                                }
-                                return <span key={i}>{part}</span>;
-                              })}
-                            </p>
+                            <VendorCard vendorName={foundVendor.name} onSendMessage={onSendMessage} context={vendorContext}>
+                              {renderContent()}
+                            </VendorCard>
                           );
                         }
-                        return <p className="leading-relaxed">{children}</p>;
-                      };
-
-                      if (foundVendor) {
+                        
                         return (
-                          <VendorCard vendorName={foundVendor.name} onSendMessage={onSendMessage} context={vendorContext}>
+                          <div className={`${isParaTemplate ? 'template-block text-slate-900 font-medium bg-slate-50 p-3 rounded-xl border border-slate-100' : 'mb-2 last:mb-0'}`}>
                             {renderContent()}
-                          </VendorCard>
-                        );
-                      }
-                      
-                      return (
-                        <div className={`${isParaTemplate ? 'template-block font-medium' : 'mb-2 last:mb-0'}`}>
-                          {renderContent()}
-                        </div>
-                      );
-                    },
-                    ul: ({ children }) => <ul className="mb-3 list-disc ml-4 space-y-1">{children}</ul>,
-                    ol: ({ children }) => <ol className="list-decimal ml-4 mb-3 space-y-1">{children}</ol>,
-                    li: ({ children }) => {
-                      const contentText = extractText(children);
-                      
-                      // Check for vendor match in list item
-                      const foundVendor = VENDORS.find(v => 
-                        contentText.toLowerCase().includes(v.name.toLowerCase())
-                      );
-                      if (foundVendor) {
-                        return (
-                          <li className="list-none mb-4 pl-0">
-                            <VendorCard vendorName={foundVendor.name} onSendMessage={onSendMessage} context={vendorContext}>
-                              {children}
-                            </VendorCard>
-                          </li>
-                        );
-                      }
-
-                      return (
-                        <li className="pl-1">
-                          <div className="inline-block w-full">
-                            {children}
                           </div>
-                        </li>
-                      );
-                    },
-                    strong: ({ children }) => <span className="font-bold text-slate-900 text-[14px]">{children}</span>,
-                    em: ({ children }) => <span className="italic text-slate-500">{children}</span>,
-                    h1: ({ children }) => <h1 className="text-base font-bold text-slate-900 mb-2 mt-3 first:mt-0">{children}</h1>,
-                    h2: ({ children }) => <h2 className="text-sm font-bold text-slate-900 mb-2 mt-2">{children}</h2>,
-                    h3: ({ children }) => <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1 mt-2">{children}</h3>,
-                    a: ({ href, children }) => (
-                      <a 
-                        href={href} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="text-blue-600 hover:text-blue-800 font-medium hover:underline inline-flex items-center gap-0.5"
-                      >
-                        {children} <ExternalLink className="w-3 h-3 opacity-50" />
-                      </a>
-                    ),
-                    table: ({ children }) => (
-                      <div className="overflow-x-auto my-2 rounded-lg border border-slate-200">
-                        <table className="min-w-full divide-y divide-slate-200 text-xs">{children}</table>
-                      </div>
-                    ),
-                    thead: ({ children }) => <thead className="bg-slate-50">{children}</thead>,
-                    tbody: ({ children }) => <tbody className="divide-y divide-slate-200 bg-white">{children}</tbody>,
-                    tr: ({ children }) => <tr className="hover:bg-slate-50 transition-colors">{children}</tr>,
-                    th: ({ children }) => <th className="px-3 py-2 text-left text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{children}</th>,
-                    td: ({ children }) => <td className="px-3 py-2 whitespace-nowrap text-slate-700">{children}</td>,
-                    code: ({ children }) => (
-                      <code className="bg-slate-100 text-pink-600 rounded px-1.5 py-0.5 text-[10px] font-mono border border-slate-200">
-                        {children}
-                      </code>
-                    ),
-                    pre: ({ children }) => (
-                      <pre className="bg-slate-900 text-slate-50 p-2 rounded-lg overflow-x-auto my-2 text-[10px] font-mono shadow-inner">
-                        {children}
-                      </pre>
-                    ),
-                    blockquote: ({ children }) => {
-                      const isSmartBundle = React.Children.toArray(children).some((child: any) => {
-                         if (child && typeof child === 'object' && 'props' in child) {
-                           const text = Array.isArray(child.props.children) 
-                             ? child.props.children.map((c: any) => c?.toString() || '').join('')
-                             : child.props.children?.toString() || '';
-                           return text.includes('Smart Bundle');
-                         }
-                         return false;
-                      });
-
-                      if (isSmartBundle) {
+                        );
+                      },
+                      ul: ({ children }) => <ul className="mb-2 list-disc ml-4 space-y-1">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal ml-4 mb-2 space-y-1">{children}</ol>,
+                      li: ({ children }) => {
                         const contentText = extractText(children);
                         
                         const foundVendor = VENDORS.find(v => 
                           contentText.toLowerCase().includes(v.name.toLowerCase())
                         );
-
-                        if (foundVendor) {
+                        if (foundVendor && !isBookingFollowUp) {
                           return (
-                            <div className="my-4 relative">
-                              <div className="absolute -top-3 left-4 z-10 bg-indigo-600 text-white text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded shadow-sm flex items-center gap-1">
-                                <Zap className="w-2.5 h-2.5 fill-white" /> Smart Bundle
-                              </div>
+                            <li className="list-none mb-4 pl-0">
                               <VendorCard vendorName={foundVendor.name} onSendMessage={onSendMessage} context={vendorContext}>
                                 {children}
                               </VendorCard>
-                            </div>
+                            </li>
                           );
                         }
 
                         return (
-                          <blockquote className="border-l-4 border-indigo-500 pl-3 bg-indigo-50 py-2 pr-2 rounded-r-lg my-2 shadow-sm relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-1 opacity-10">
-                              <Zap className="w-8 h-8 text-indigo-600" />
-                            </div>
-                            <div className="text-indigo-900 text-xs relative z-10 font-medium leading-relaxed">
+                          <li className="pl-1">
+                            <div className="inline-block w-full">
                               {children}
                             </div>
-                            {onSendMessage && (
-                              <button 
-                                onClick={() => onSendMessage("I'm interested in the smart bundle you suggested. Can we book it?")}
-                                className="mt-2 relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[9px] font-bold uppercase tracking-wider rounded-md transition-all shadow-sm active:scale-95"
-                              >
-                                <CalendarCheck className="w-3 h-3" />
-                                Book This Bundle
-                              </button>
-                            )}
+                          </li>
+                        );
+                      },
+                      strong: ({ children }) => <span className="font-bold text-slate-900">{children}</span>,
+                      em: ({ children }) => <span className="italic text-slate-500">{children}</span>,
+                      h1: ({ children }) => <h1 className="text-lg font-bold text-slate-900 mb-2 mt-4 first:mt-0">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-md font-bold text-slate-900 mb-2 mt-3">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-bold text-slate-700 mb-1 mt-2">{children}</h3>,
+                      a: ({ href, children }) => (
+                        <a 
+                          href={href} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-blue-600 hover:text-blue-800 font-medium underline underline-offset-4 decoration-blue-100 inline-flex items-center gap-1"
+                        >
+                          {children} <ExternalLink className="w-3 h-3 opacity-50" />
+                        </a>
+                      ),
+                      table: ({ children }) => (
+                        <div className="overflow-x-auto my-3 rounded-lg border border-slate-100 shadow-sm">
+                          <table className="min-w-full divide-y divide-slate-100 text-xs">{children}</table>
+                        </div>
+                      ),
+                      thead: ({ children }) => <thead className="bg-slate-50">{children}</thead>,
+                      tbody: ({ children }) => <tbody className="divide-y divide-slate-100 bg-white">{children}</tbody>,
+                      tr: ({ children }) => <tr className="hover:bg-slate-50 transition-colors uppercase tracking-tight font-bold">{children}</tr>,
+                      th: ({ children }) => <th className="px-3 py-2 text-left text-[9px] font-bold text-slate-400 uppercase tracking-widest">{children}</th>,
+                      td: ({ children }) => <td className="px-3 py-2 whitespace-nowrap text-slate-600">{children}</td>,
+                      code: ({ children }) => (
+                        <code className="bg-slate-50 text-indigo-600 rounded px-1 min-w-[20px] font-mono border border-slate-100">
+                          {children}
+                        </code>
+                      ),
+                      pre: ({ children }) => (
+                        <pre className="bg-slate-900 text-white p-3 rounded-xl overflow-x-auto my-3 text-[11px] font-mono shadow-inner">
+                          {children}
+                        </pre>
+                      ),
+                      blockquote: ({ children }) => {
+                        const isSmartBundle = React.Children.toArray(children).some((child: any) => {
+                           if (child && typeof child === 'object' && 'props' in child) {
+                             const text = Array.isArray(child.props.children) 
+                               ? child.props.children.map((c: any) => c?.toString() || '').join('')
+                               : child.props.children?.toString() || '';
+                             return text.includes('Smart Bundle');
+                           }
+                           return false;
+                        });
+
+                        if (isSmartBundle) {
+                          const contentText = extractText(children);
+                          
+                          const foundVendor = VENDORS.find(v => 
+                            contentText.toLowerCase().includes(v.name.toLowerCase())
+                          );
+
+                          if (foundVendor) {
+                            return (
+                              <div className="my-4 relative">
+                                <div className="absolute -top-2 left-4 z-10 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-xl flex items-center gap-1">
+                                  <Sparkles className="w-2.5 h-2.5" /> Smart Bundle
+                                </div>
+                                <VendorCard vendorName={foundVendor.name} onSendMessage={onSendMessage} context={vendorContext}>
+                                  {children}
+                                </VendorCard>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <blockquote className="border-l-2 border-slate-900 pl-4 bg-slate-50 py-3 pr-4 rounded-r-xl my-3 relative overflow-hidden">
+                              <div className="text-slate-800 text-[14px] relative z-10 font-bold">
+                                {children}
+                              </div>
+                              {onSendMessage && (
+                                <button 
+                                  onClick={() => onSendMessage("I'm interested in the smart bundle you suggested. Can we book it?")}
+                                  className="mt-3 relative z-10 inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 text-white hover:bg-black text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all shadow-md active:scale-95"
+                                >
+                                  <CalendarCheck className="w-3 h-3" />
+                                  Book This Bundle
+                                </button>
+                              )}
+                            </blockquote>
+                          );
+                        }
+                        
+                        return (
+                          <blockquote className="border-l-2 border-slate-200 pl-4 italic text-slate-500 my-2">
+                            {children}
                           </blockquote>
                         );
-                      }
-                      
-                      return (
-                        <blockquote className="border-l-4 border-blue-200 pl-3 italic text-slate-500 my-2 bg-slate-50 py-2 pr-2 rounded-r-lg text-xs">
-                          {children}
-                        </blockquote>
-                      );
-                    },
-                  }}
-                >
-                  {message.content}
-                </ReactMarkdown>
+                      },
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
               )}
               
               {!isUser && (isTemplatePresent || isMatchesPresent) && (
-                <div className="flex flex-wrap gap-2 justify-end mt-3 pt-3 border-t border-slate-100 relative">
+                <div className="flex flex-wrap gap-2 justify-end mt-3 pt-3 border-t border-slate-50 relative">
                   {(copiedText || toastMessage) && (
-                    <div className="absolute -top-14 right-0 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300 pointer-events-none">
-                      <div className="bg-slate-900 text-white text-[11px] font-bold py-2 px-3 rounded-lg shadow-xl shadow-slate-300/50 flex items-center gap-2">
-                        <div className="bg-green-500 rounded-full p-0.5">
-                          <Check className="w-2.5 h-2.5 text-white" />
-                        </div>
+                    <div className="absolute -top-12 right-0 z-20 animate-in fade-in slide-in-from-bottom-2 duration-300 pointer-events-none">
+                      <div className="bg-slate-900 text-white text-[10px] font-bold py-1.5 px-3 rounded-lg shadow-xl flex items-center gap-2">
+                        <Check className="w-3 h-3 text-emerald-400" />
                         <span>{toastMessage || (copiedText === 'matches' ? 'Match List Copied!' : 'Message Copied!')}</span>
-                        <div className="absolute -bottom-1 right-6 w-2.5 h-2.5 bg-slate-900 rotate-45"></div>
                       </div>
                     </div>
                   )}
@@ -323,8 +349,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
                   {isMatchesPresent && (
                     <>
                       <button 
-                        onClick={() => setIsEmailModalOpen(true)}
-                        className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-4 py-3 rounded-xl transition-all transform active:scale-95 shadow-sm border bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-md hover:shadow-blue-200 min-h-[44px]"
+                         onClick={() => setIsEmailModalOpen(true)}
+                         className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 text-white rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-sm hover:bg-black transition-all"
                       >
                         <Mail className="w-3.5 h-3.5" aria-hidden="true" />
                         Email Quote
@@ -332,14 +358,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
 
                       <button 
                         onClick={() => copyToClipboard('matches')}
-                        className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-4 py-3 rounded-xl transition-all transform active:scale-95 shadow-sm border min-h-[44px] ${
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-bold text-[9px] uppercase tracking-wider transition-all border ${
                           copiedText === 'matches' 
-                          ? 'bg-green-50 text-green-700 border-green-200' 
-                          : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                         }`}
                       >
-                        {copiedText === 'matches' ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />}
-                        {copiedText === 'matches' ? 'Copied' : 'Copy Match List'}
+                        {copiedText === 'matches' ? <Check className="w-3 h-3" aria-hidden="true" /> : <ClipboardList className="w-3.5 h-3.5" aria-hidden="true" />}
+                        {copiedText === 'matches' ? 'Copied' : 'Match List'}
                       </button>
                     </>
                   )}
@@ -347,29 +373,21 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => 
                   {isTemplatePresent && (
                     <button 
                       onClick={() => copyToClipboard('message')}
-                      className={`flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider px-4 py-3 rounded-xl transition-all transform active:scale-95 shadow-sm border min-h-[44px] ${
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-bold text-[9px] uppercase tracking-wider transition-all border ${
                         copiedText === 'message'
-                        ? 'bg-green-50 text-green-700 border-green-200'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                       }`}
                     >
-                      {copiedText === 'message' ? <Check className="w-3.5 h-3.5" aria-hidden="true" /> : <Copy className="w-3.5 h-3.5" aria-hidden="true" />}
-                      {copiedText === 'message' ? 'Copied' : 'Copy Message'}
+                      {copiedText === 'message' ? <Check className="w-3 h-3" aria-hidden="true" /> : <Copy className="w-3.5 h-3.5" aria-hidden="true" />}
+                      {copiedText === 'message' ? 'Copied' : 'Message'}
                     </button>
                   )}
                 </div>
               )}
             </div>
             
-            <div className={`flex items-center gap-1.5 mt-1 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                {isUser ? 'You' : 'NeighborWings'}
-              </span>
-              <span className="text-[10px] text-slate-300">•</span>
-              <span className="text-[10px] text-slate-400 font-medium">
-                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
+            {/* Removed metadata for cleaner look */}
           </div>
         </div>
       </div>

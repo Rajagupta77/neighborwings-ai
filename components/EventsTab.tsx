@@ -45,7 +45,6 @@ export const EventsTab: React.FC<EventsTabProps> = ({ onPairWithVendor }) => {
     // Sorting
     return filtered.sort((a, b) => {
       if (sortBy === "date") {
-        // Simple string comparison for now, ideally parse dates
         return a.date.localeCompare(b.date);
       }
       if (sortBy === "price") {
@@ -53,32 +52,36 @@ export const EventsTab: React.FC<EventsTabProps> = ({ onPairWithVendor }) => {
         const priceB = b.price.toLowerCase().includes("free") ? 0 : 1;
         return priceA - priceB;
       }
-      // Popularity mock (random deterministic for demo)
       return a.name.length - b.name.length;
     });
   }, [activeFilter, searchQuery, sortBy]);
 
   return (
-    <div className="h-full flex flex-col bg-[#f8fafc]">
+    <div className="h-full flex flex-col bg-white">
       {/* Search & Filter Header */}
-      <div className="px-5 py-4 bg-white border-b border-slate-100 sticky top-0 z-10 space-y-3 shadow-sm">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" aria-hidden="true" />
+      <div className="px-6 py-8 bg-white space-y-8">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Discover Tampa Bay</h2>
+          <p className="text-slate-500 font-medium tracking-wide">Find the best local events happening around you.</p>
+        </div>
+
+        <div className="flex gap-4">
+          <div className="relative flex-1 group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-slate-900 transition-colors" aria-hidden="true" />
             <input 
               type="text"
-              placeholder="Search events..."
+              placeholder="Search events, locations, or vibes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-base text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-slate-100 transition-all shadow-sm"
               aria-label="Search events"
             />
           </div>
           <div className="relative">
             <button 
               onClick={() => setIsSortOpen(!isSortOpen)}
-              className={`h-full px-3 flex items-center gap-2 border rounded-xl text-sm font-medium transition-colors ${
-                isSortOpen ? 'bg-slate-100 border-slate-300 text-slate-900' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+              className={`h-full px-6 flex items-center gap-2 border rounded-2xl text-sm font-black uppercase tracking-widest transition-all ${
+                isSortOpen ? 'bg-slate-900 border-slate-900 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-400'
               }`}
               aria-label="Sort events"
               aria-expanded={isSortOpen}
@@ -90,7 +93,7 @@ export const EventsTab: React.FC<EventsTabProps> = ({ onPairWithVendor }) => {
             {isSortOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setIsSortOpen(false)} />
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1 z-20 animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-20 animate-in fade-in zoom-in-95 duration-200">
                   {SORT_OPTIONS.map(option => (
                     <button
                       key={option.value}
@@ -98,12 +101,12 @@ export const EventsTab: React.FC<EventsTabProps> = ({ onPairWithVendor }) => {
                         setSortBy(option.value);
                         setIsSortOpen(false);
                       }}
-                      className={`w-full text-left px-4 py-3 text-sm hover:bg-slate-50 transition-colors flex items-center justify-between ${
-                        sortBy === option.value ? 'text-blue-600 font-medium bg-blue-50/50' : 'text-slate-600'
+                      className={`w-full text-left px-5 py-4 text-[11px] font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors flex items-center justify-between ${
+                        sortBy === option.value ? 'text-slate-900 bg-slate-50/50' : 'text-slate-400'
                       }`}
                     >
                       {option.label}
-                      {sortBy === option.value && <Plus className="w-3 h-3 rotate-45" aria-hidden="true" />}
+                      {sortBy === option.value && <div className="w-1.5 h-1.5 bg-slate-900 rounded-full" />}
                     </button>
                   ))}
                 </div>
@@ -112,15 +115,15 @@ export const EventsTab: React.FC<EventsTabProps> = ({ onPairWithVendor }) => {
           </div>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-5 px-5 sm:mx-0 sm:px-0">
+        <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-6 px-6 sm:mx-0 sm:px-0">
           {FILTERS.map(filter => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-all border ${
+              className={`whitespace-nowrap px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] transition-all border shadow-sm ${
                 activeFilter === filter
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-md transform scale-105'
-                  : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-xl shadow-slate-200'
+                  : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300 hover:text-slate-900'
               }`}
             >
               {filter}
@@ -130,8 +133,8 @@ export const EventsTab: React.FC<EventsTabProps> = ({ onPairWithVendor }) => {
       </div>
 
       {/* Events Grid */}
-      <div className="flex-1 overflow-y-auto p-5 sm:p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-4xl mx-auto pb-20">
+      <div className="flex-1 overflow-y-auto px-6 pb-20">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-24">
           {filteredEvents.length > 0 ? (
             filteredEvents.map((event, index) => (
               <EventCard 
@@ -141,16 +144,18 @@ export const EventsTab: React.FC<EventsTabProps> = ({ onPairWithVendor }) => {
               />
             ))
           ) : (
-            <div className="col-span-full flex flex-col items-center justify-center py-20 text-center opacity-60">
-              <Search className="w-12 h-12 text-slate-300 mb-4" />
-              <p className="text-slate-900 font-bold text-lg">No events found</p>
-              <p className="text-slate-500 text-sm">Try adjusting your search or filters</p>
+            <div className="col-span-full flex flex-col items-center justify-center py-32 text-center animate-in fade-in zoom-in duration-500">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                <Search className="w-10 h-10 text-slate-300" />
+              </div>
+              <p className="text-slate-900 font-black text-xl tracking-tight mb-2">No events found</p>
+              <p className="text-slate-500 font-medium">Try adjusting your search or filters to explore more.</p>
               <button 
                 onClick={() => {
                   setSearchQuery("");
                   setActiveFilter("All");
                 }}
-                className="mt-4 text-blue-600 text-sm font-bold hover:underline"
+                className="mt-8 px-6 py-3 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black transition-all shadow-lg"
               >
                 Clear all filters
               </button>

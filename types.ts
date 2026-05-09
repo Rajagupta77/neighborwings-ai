@@ -19,6 +19,7 @@ export interface Vendor {
   description: string;
   phone?: string;
   instagram?: string;
+  email?: string;
 }
 
 export interface CommunityEvent {
@@ -33,4 +34,23 @@ export interface CommunityEvent {
     reason: string;
     priceRange: string;
   };
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: Message[];
+  updatedAt: string;
+}
+
+export interface BookingRequest {
+  id?: string;
+  vendor_name: string;
+  vendor_email?: string;
+  customer_name: string;
+  customer_email: string;
+  event_date: string;
+  requirements: string;
+  status: 'new' | 'contacted' | 'completed' | 'cancelled';
+  created_at?: string;
 }

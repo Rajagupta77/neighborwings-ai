@@ -39,25 +39,23 @@ export const VendorActionButtons: React.FC<VendorActionButtonsProps> = ({ vendor
   };
 
   return (
-    <div className="flex flex-row gap-2 w-full mt-3">
+    <div className="flex flex-row gap-3 w-full mt-4">
       <button
         onClick={handleWhatsApp}
-        className="flex-1 flex items-center justify-center gap-2 px-2 py-2.5 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all shadow-md hover:scale-[1.05] active:scale-95 border border-[#1eb354]"
+        className="flex-1 flex items-center justify-center gap-2.5 px-4 py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg hover:scale-[1.02] active:scale-95 border border-[#1eb354]"
         title="Message on WhatsApp"
       >
-        <MessageCircle className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">Message on WhatsApp</span>
-        <span className="sm:hidden">WhatsApp</span>
+        <MessageCircle className="w-4 h-4" />
+        <span>WhatsApp</span>
       </button>
 
       <button
         onClick={handleInstagram}
-        className="flex-1 flex items-center justify-center gap-2 px-2 py-2.5 bg-[#E1306C] hover:bg-[#c92b60] text-white rounded-xl text-[9px] font-bold uppercase tracking-wider transition-all shadow-md hover:scale-[1.05] active:scale-95 border border-[#c92b60]"
+        className="flex-1 flex items-center justify-center gap-2.5 px-4 py-3 bg-gradient-to-tr from-[#f09433] via-[#e6683c] via-[#dc2743] via-[#cc2366] to-[#bc1888] hover:opacity-90 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg hover:scale-[1.02] active:scale-95"
         title="View on Instagram"
       >
-        <Instagram className="w-3.5 h-3.5" />
-        <span className="hidden sm:inline">View on Instagram</span>
-        <span className="sm:hidden">Instagram</span>
+        <Instagram className="w-4 h-4" />
+        <span>Instagram</span>
       </button>
     </div>
   );
