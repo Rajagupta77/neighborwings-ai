@@ -5,7 +5,7 @@ import { Message } from "../types";
 import { getSupabase } from "../lib/supabaseClient";
 
 export const getGeminiResponse = async (history: Message[]) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || '' });
   
   const contents = history.map(msg => ({
     role: msg.role === 'user' ? 'user' : 'model',
